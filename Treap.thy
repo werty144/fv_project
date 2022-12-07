@@ -484,28 +484,12 @@ fun cont:: "'k \<Rightarrow> 'p \<Rightarrow> ('k \<times> 'p) tree \<Rightarrow
 "cont k p \<langle>\<rangle> = False" |
 "cont k p \<langle>l, (k1, p1), r\<rangle> = ((k = k1 \<and> p = p1) \<or> (cont k p l) \<or> (cont k p r))"
 
-lemma greatest_key_not_contained: 
-  "\<lbrakk>treap t; \<forall> kt.(kt \<in> keys t)\<longrightarrow> (k > kt)\<rbrakk> \<Longrightarrow> \<not> (cont k p t)"
-proof (induction t)
-  case Leaf
-  then show ?case by (auto)
-next
-  case 2: (Node t1 x2 t2)
-  obtain k1 where "k1 = fst x2" by (auto)
-  then show ?case
-  proof (cases "k1 = k")
-    case True
-    then have "\<exists> k1. k1 \<in> keys t \<and> (\<not> k1 < k)" by (auto)
-    then have False using "2.prems" by (blast)
-  next
-    case False
-    then show ?thesis sorry
-  qed
-qed
+lemma cont_then_in_keys: "\<lbrakk>treap t; cont k p t\<rbrakk> \<Longrightarrow> k \<in> keys t"
+  apply(induction t)
+  apply(auto simp: treap_def tree.set_map)
+  done
 
 
-
-(*
 lemma sub_treap:
   assumes "treap \<langle>l, (k, p), r\<rangle>"
   shows "(treap l) \<and> (treap r)"
@@ -514,7 +498,7 @@ proof
   have 1: "heap (map_tree snd \<langle>l, (k, p), r\<rangle>)" using assms(1) by (auto simp add: treap_def)
   show "treap l" using 0 1 by (auto simp add: treap_def)
   show  "treap r" using 0 1 by (auto simp add: treap_def)
-qed *)
+qed
 
 
 lemma ins_cont:
@@ -561,11 +545,22 @@ next
     case  False
     then show ?thesis 
     proof (cases "k < k1")
-      case True
-      then have "\<forall> kr. (kr \<in> keys r) \<longrightarrow> kr > k" using "2.prems" by (auto)
+      case 0: True
+      then have "\<forall> kr. (kr \<in> keys r) \<longrightarrow> kr > k" 
+        using "2.prems" 
+        by (auto  simp: treap_def tree.set_map)
+      then have "k \<notin> keys r" by (auto simp: treap_def tree.set_map)
+      then have "\<not> cont k p r" 
+        using "2.prems" cont_then_in_keys[of r k p] sub_treap
+        by (auto)
       then have "cont k p l" 
- 
-      then show ?thesis using "2.IH" "2.prems" by (auto)
+        using 0 "2.IH" "2.prems" 
+        by (auto simp: treap_def tree.set_map)
+      then have "ins k p l = l" using 0 sub_treap[of l k1 p1 r] "2.IH" "2.prems" by (auto)
+      then have a: "l \<noteq> Leaf" using ins_neq_Leaf by (auto)
+      obtain p2 where get_p2: "p2 = (case l of \<langle>l2, (k2, p2), r2\<rangle> \<Rightarrow> p2)" by (auto)
+      have "p2 \<le> p1" using get_p2 "2.prems" by (auto)
+      then show ?thesis using 0 sub_treap[of l k1 p1 r] "2.IH" "2.prems" by (auto)
     next
       case False
       then show ?thesis sorry
