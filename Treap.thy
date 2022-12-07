@@ -107,6 +107,7 @@ fun ins :: "'k::linorder \<Rightarrow> 'p::linorder \<Rightarrow> ('k \<times> '
          else \<langle>\<langle>l, (k1,p1), l2\<rangle>, (k2,p2), r2\<rangle>)
    else \<langle>l, (k1,p1), r\<rangle>)"
 
+
 lemma ins_neq_Leaf: "ins k p t \<noteq> \<langle>\<rangle>"
   by (induction t rule: ins.induct) (auto split: tree.split)
 
@@ -320,6 +321,7 @@ next
 qed
 
 lemma treap_of_set_tree_unique:
+
   "\<lbrakk> finite A; inj_on fst A; inj_on snd A \<rbrakk>
   \<Longrightarrow> set_tree (treap_of A) = A"  
 proof(induction "A" rule: treap_of.induct)
@@ -361,7 +363,19 @@ proof(induction "A" rule: treap_of.induct)
       using not_inf_or_empty arg_min_if_finite by auto
     ultimately have A: "A = {?m} \<union> ?L \<union> ?R"
       by auto
-    show ?thesis using l r a A t by force
+    show ?thesis using l r a A t by forceproof(induction t rule: ins.induct)
+  case (1 k p)
+  then show ?case by (auto)
+next
+  case (2 k p l k1 p1 r)
+  then show ?case
+  proof (cases)
+    assume 1:  "k < k1"
+    from 1 have "ins k p \<langle>l, (k1, p1), r\<rangle> = \<langle>ins k p l, (k1, p1), r\<rangle>" by (auto)
+  next
+    assume "k > k1"
+  qed
+qed
   qed
 qed
 
@@ -463,5 +477,106 @@ lemma foldl_ins_treap_of:
  shows "(foldl (\<lambda>t' (x, p). ins x p t') Leaf ys) = treap_of (set ys)"
   using assms by (intro treap_unique) (auto simp: treap_Leaf foldl_ins_treap foldl_ins_set_tree 
                                                   treap_treap_of treap_of_set_tree_unique)
+
+
+
+fun cont:: "'k \<Rightarrow> 'p \<Rightarrow> ('k \<times> 'p) tree \<Rightarrow> bool" where
+"cont k p \<langle>\<rangle> = False" |
+"cont k p \<langle>l, (k1, p1), r\<rangle> = ((k = k1 \<and> p = p1) \<or> (cont k p l) \<or> (cont k p r))"
+
+lemma greatest_key_not_contained: 
+  "\<lbrakk>treap t; \<forall> kt.(kt \<in> keys t)\<longrightarrow> (k > kt)\<rbrakk> \<Longrightarrow> \<not> (cont k p t)"
+proof (induction t)
+  case Leaf
+  then show ?case by (auto)
+next
+  case 2: (Node t1 x2 t2)
+  obtain k1 where "k1 = fst x2" by (auto)
+  then show ?case
+  proof (cases "k1 = k")
+    case True
+    then have "\<exists> k1. k1 \<in> keys t \<and> (\<not> k1 < k)" by (auto)
+    then have False using "2.prems" by (blast)
+  next
+    case False
+    then show ?thesis sorry
+  qed
+qed
+
+
+
+(*
+lemma sub_treap:
+  assumes "treap \<langle>l, (k, p), r\<rangle>"
+  shows "(treap l) \<and> (treap r)"
+proof
+  have 0: "bst (map_tree fst \<langle>l, (k, p), r\<rangle>)" using assms(1) by (auto simp add: treap_def)
+  have 1: "heap (map_tree snd \<langle>l, (k, p), r\<rangle>)" using assms(1) by (auto simp add: treap_def)
+  show "treap l" using 0 1 by (auto simp add: treap_def)
+  show  "treap r" using 0 1 by (auto simp add: treap_def)
+qed *)
+
+
+lemma ins_cont:
+  assumes  "treap t"
+  shows "cont k p (ins k p t) \<or> k \<in> keys t"
+proof(induction t rule: ins.induct)
+  case (1 k p)
+  then show ?case by (auto)
+next
+  case (2 k p l k1 p1 r)
+  obtain  l2 k2 p2 r2 where ins: "ins k p l = Node l2 (k2,p2) r2"
+    by (metis ins_neq_Leaf neq_Leaf_iff prod.collapse)
+  obtain  l3 k3 p3 r3 where ins_r: "ins k p r = Node l3 (k3,p3) r3"
+      by (metis ins_neq_Leaf neq_Leaf_iff prod.collapse)
+  then show ?case
+  proof (cases "k < k1")
+    case True
+    then show ?thesis using  ins "2.IH" by (auto)
+  next
+    case 0: False
+    then show ?thesis 
+    proof (cases "k = k1")
+      case True
+      then show ?thesis using  "2.IH" by (auto)
+    next
+      case False
+      then have "k > k1" using 0 by (auto)
+      then show ?thesis using ins_r "2.IH"  by (auto)
+    qed
+  qed
+qed
+
+lemma cont_ins_nothing: "\<lbrakk>treap t; cont k p t\<rbrakk> \<Longrightarrow> ins k p t = t"
+proof(induction t rule: ins.induct)
+  case (1 k p)
+  then show ?case by (auto)
+next
+  case (2 k p l k1 p1 r)
+  then show ?case
+  proof (cases "k = k1")
+    case True
+    then show ?thesis by (auto)
+  next
+    case  False
+    then show ?thesis 
+    proof (cases "k < k1")
+      case True
+      then have "\<forall> kr. (kr \<in> keys r) \<longrightarrow> kr > k" using "2.prems" by (auto)
+      then have "cont k p l" 
+ 
+      then show ?thesis using "2.IH" "2.prems" by (auto)
+    next
+      case False
+      then show ?thesis sorry
+    qed
+  qed
+qed
+
+lemma ins_duplicate: "\<lbrakk>treap t\<rbrakk> \<Longrightarrow> ins k p (ins k p t) = ins k p t"
+  apply (induction t rule: ins.induct)
+  apply (auto)
+  done
+
 
 end
