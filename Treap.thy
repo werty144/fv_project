@@ -531,7 +531,7 @@ next
   qed
 qed
 
-lemma cont_ins_nothing: "\<lbrakk>treap t; cont k p t\<rbrakk> \<Longrightarrow> ins k p t = t"
+lemma cont_ins_same: "\<lbrakk>treap t; cont k p t\<rbrakk> \<Longrightarrow> ins k p t = t"
 proof(induction t rule: ins.induct)
   case (1 k p)
   then show ?case by (auto)
@@ -542,7 +542,7 @@ next
     case True
     then show ?thesis by (auto)
   next
-    case  False
+    case f: False
     then show ?thesis 
     proof (cases "k < k1")
       case 0: True
@@ -556,22 +556,32 @@ next
       then have "cont k p l" 
         using 0 "2.IH" "2.prems" 
         by (auto simp: treap_def tree.set_map)
-      then have "ins k p l = l" using 0 sub_treap[of l k1 p1 r] "2.IH" "2.prems" by (auto)
-      then have a: "l \<noteq> Leaf" using ins_neq_Leaf by (auto)
-      obtain p2 where get_p2: "p2 = (case l of \<langle>l2, (k2, p2), r2\<rangle> \<Rightarrow> p2)" by (auto)
-      have "p2 \<le> p1" using get_p2 "2.prems" by (auto)
-      then show ?thesis using 0 sub_treap[of l k1 p1 r] "2.IH" "2.prems" by (auto)
+      then have a: "ins k p l = l" using 0 sub_treap[of l k1 p1 r] "2.IH" "2.prems" by (auto)
+      obtain l2 k2 p2 r2 where get_p2: "ins k p l =  \<langle>l2, (k2, p2), r2\<rangle>" 
+        by  (metis ins_neq_Leaf neq_Leaf_iff prod.collapse)
+      have "p2 \<in> prios l" using get_p2 a by (auto  simp: treap_def  tree.set_map)
+      then have "p2 \<ge> p1" using get_p2 "2.prems" by (auto simp: treap_def  tree.set_map)
+      then show ?thesis using 0 a get_p2 sub_treap[of l k1 p1 r] "2.IH" "2.prems" by (auto)
     next
-      case False
-      then show ?thesis sorry
+      case 3: False
+      then have "\<forall> kr. (kr \<in> keys l) \<longrightarrow> kr < k" 
+        using "2.prems" 
+        by (auto  simp: treap_def tree.set_map)
+      then have "k \<notin> keys l" by (auto simp: treap_def tree.set_map)
+      then have "\<not> cont k p l" 
+        using "2.prems" cont_then_in_keys[of l k p] sub_treap
+        by (auto)
+      then have "cont k p r" 
+        using 3 f "2.IH" "2.prems" 
+        by (auto simp: treap_def tree.set_map)
+      then have a: "ins k p r = r" using 3 f sub_treap[of l k1 p1 r] "2.IH" "2.prems" by (auto)
+      obtain l2 k2 p2 r2 where get_p2: "ins k p r =  \<langle>l2, (k2, p2), r2\<rangle>" 
+        by  (metis ins_neq_Leaf neq_Leaf_iff prod.collapse)
+      have "p2 \<in> prios r" using get_p2 a by (auto  simp: treap_def  tree.set_map)
+      then have "p2 \<ge> p1" using get_p2 "2.prems" by (auto simp: treap_def  tree.set_map)
+      then show ?thesis using 3 f a get_p2 sub_treap[of l k1 p1 r] "2.IH" "2.prems" by (auto)
     qed
   qed
 qed
-
-lemma ins_duplicate: "\<lbrakk>treap t\<rbrakk> \<Longrightarrow> ins k p (ins k p t) = ins k p t"
-  apply (induction t rule: ins.induct)
-  apply (auto)
-  done
-
 
 end
