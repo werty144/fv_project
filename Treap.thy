@@ -584,4 +584,103 @@ next
   qed
 qed
 
+fun disjoint_treap::"'t1 \<Rightarrow> 't2 \<Rightarrow> bool" where
+"disjoint_treap \<langle>\<rangle> t2 = True" |
+"disjoint_treap \<langle>l, (k, p), r\<rangle> t2 = (cont k p t2) \<and> (disjoint_treap l t2) \<and> (disjoint_treap r t2)"
+
+fun merge :: "('k::linorder \<times> 'p::linorder) tree \<Rightarrow> ('k \<times> 'p) tree \<Rightarrow> ('k \<times> 'p) tree" where
+"merge t Leaf = t" |
+"merge Leaf t = t" |
+"merge \<langle>l1, (k1,p1), r1\<rangle>  \<langle>l2, (k2, p2), r2\<rangle> = 
+ (if p1 > p2 then
+    \<langle>l1, (k1,p1), merge r1  \<langle>l2, (k2, p2), r2 \<rangle>\<rangle>
+  else
+     \<langle>merge \<langle>l1, (k1,p1), r1\<rangle> l2, (k2, p2), r2\<rangle>)
+"
+
+lemma subbst_is_bst:
+   "\<lbrakk>bst  \<langle>l, (k), r\<rangle> \<rbrakk> \<Longrightarrow> bst l"
+  apply (auto)
+  done
+
+lemma subheap_is_heap:
+   "\<lbrakk>heap  \<langle>l, (p), r\<rangle> \<rbrakk> \<Longrightarrow> heap l \<and> heap r"
+  apply (auto)
+  done
+
+lemma sbt_union:
+  assumes "bst l" "bst r"
+    "disjoint (set_tree l) (set_tree r)"
+    "\<forall>k' \<in> set_tree l.  k' < k"
+    "\<forall>k'' \<in> set_tree r. k < k''"
+  shows  "bst  \<langle>l, k, r\<rangle>"
+  using assms by (auto)
+
+lemma heap_union:
+  assumes "heap l" "heap r"
+    "disjoint (set_tree l) (set_tree r)"
+    "\<forall>p' \<in> set_tree l.  p' > p"
+    "\<forall>p'' \<in> set_tree r. p'' > p"
+  shows  "heap  \<langle>l, p, r\<rangle>"
+  using assms by (auto)
+
+
+lemma submap_fst_is_map:
+"\<lbrakk>treap  \<langle>l, (k,p), r\<rangle>;  \<langle>a, b, c\<rangle> = (map_tree fst \<langle>l, (k,p), r\<rangle>)\<rbrakk> \<Longrightarrow>  a = map_tree fst l \<and> b = k \<and> c = map_tree fst r"
+  apply(auto)
+  done
+
+lemma submap_snd_is_map:
+"\<lbrakk>treap  \<langle>l, (k,p), r\<rangle>;  \<langle>a, b, c\<rangle> = (map_tree snd \<langle>l, (k,p), r\<rangle>)\<rbrakk> \<Longrightarrow>  a = map_tree snd l \<and> b = p \<and> c = map_tree snd r"
+  apply(auto)
+  done
+  
+lemma treap_union:
+  assumes   "treap l" "treap r" 
+    "\<forall>k' \<in> keys l. k' < k"
+    "\<forall>k'' \<in> keys r. k < k''"  
+    "\<forall>p' \<in> prios l. p' > p"
+    " \<forall>p'' \<in> prios r. p'' > p"
+    "disjoint set_tree (map_tree fst l) set_tree (map_tree fst r)"
+    "disjoint set_tree (map_tree snd l) set_tree (map_tree snd r)"
+  shows "treap  \<langle>l, (k, p), r\<rangle>"
+proof
+  have 0: "bst  \<langle>(map_tree fst l), k, (map_tree fst r)\<rangle>"  using assms by (auto simp add: sbt_union tree.set_map)
+  have 1: "heap  \<langle>(map_tree snd l), p, (map_tree snd r)\<rangle>"  using assms by (auto simp add: heap_union tree.set_map)
+  show  "treap  \<langle>l, (k, p), r" using 0 1 by (auto simp add: treap_def) 
+qed
+
+
+
+lemma merge_treap:
+assumes   "treap l" "treap r" "(\<forall>k' \<in> keys l. \<forall>k'' \<in> keys r. k' < k'')"  
+    "disjoint set_tree (map_tree fst l) set_tree (map_tree fst r)" 
+    "disjoint set_tree (map_tree snd l) set_tree (map_tree snd r)"
+shows "treap (merge l r)"
+proof(induction  l r  rule: merge.induct)
+  case (1 t)
+  then show ?case using assms by auto
+next
+  case (2 v va vb)
+  then show ?case using assms by auto
+next
+  case (3 l1 k1 p1 r1 l2 k2 p2 r2)
+  then show ?case
+    proof (cases "p1 > p2")
+      case 4: True
+      then have "treap (merge r1  \<langle>l2, (k2, p2), r2 \<rangle>)"
+        using 4 "3.IH" assms 
+        by (auto simp: treap_def tree.set_map)
+      then show ?thesis using assms by (auto simp: treap_union)
+    next 
+      case 5: False
+      then have "treap (merge \<langle>l1, (k1,p1), r1\<rangle> l2)"
+        using 5 "3.IH" assms 
+        by (auto simp: treap_def tree.set_map)
+      then show ?thesis using assms by (auto simp: treap_union)
+    next
+  qed
+qed
+
+
 end
