@@ -321,7 +321,6 @@ next
 qed
 
 lemma treap_of_set_tree_unique:
-
   "\<lbrakk> finite A; inj_on fst A; inj_on snd A \<rbrakk>
   \<Longrightarrow> set_tree (treap_of A) = A"  
 proof(induction "A" rule: treap_of.induct)
@@ -363,19 +362,7 @@ proof(induction "A" rule: treap_of.induct)
       using not_inf_or_empty arg_min_if_finite by auto
     ultimately have A: "A = {?m} \<union> ?L \<union> ?R"
       by auto
-    show ?thesis using l r a A t by forceproof(induction t rule: ins.induct)
-  case (1 k p)
-  then show ?case by (auto)
-next
-  case (2 k p l k1 p1 r)
-  then show ?case
-  proof (cases)
-    assume 1:  "k < k1"
-    from 1 have "ins k p \<langle>l, (k1, p1), r\<rangle> = \<langle>ins k p l, (k1, p1), r\<rangle>" by (auto)
-  next
-    assume "k > k1"
-  qed
-qed
+    show ?thesis using l r a A t by force
   qed
 qed
 
@@ -583,16 +570,16 @@ next
     qed
   qed
 qed
-
+(*
 fun disjoint_treap::"'t1 \<Rightarrow> 't2 \<Rightarrow> bool" where
 "disjoint_treap \<langle>\<rangle> t2 = True" |
 "disjoint_treap \<langle>l, (k, p), r\<rangle> t2 = (cont k p t2) \<and> (disjoint_treap l t2) \<and> (disjoint_treap r t2)"
-
+*)
 fun merge :: "('k::linorder \<times> 'p::linorder) tree \<Rightarrow> ('k \<times> 'p) tree \<Rightarrow> ('k \<times> 'p) tree" where
 "merge t Leaf = t" |
 "merge Leaf t = t" |
 "merge \<langle>l1, (k1,p1), r1\<rangle>  \<langle>l2, (k2, p2), r2\<rangle> = 
- (if p1 > p2 then
+ (if p1 < p2 then
     \<langle>l1, (k1,p1), merge r1  \<langle>l2, (k2, p2), r2 \<rangle>\<rangle>
   else
      \<langle>merge \<langle>l1, (k1,p1), r1\<rangle> l2, (k2, p2), r2\<rangle>)
@@ -608,7 +595,7 @@ lemma subheap_is_heap:
   apply (auto)
   done
 
-lemma sbt_union:
+lemma bst_union:
   assumes "bst l" "bst r"
     "disjoint (set_tree l) (set_tree r)"
     "\<forall>k' \<in> set_tree l.  k' < k"
@@ -634,46 +621,133 @@ lemma submap_snd_is_map:
 "\<lbrakk>treap  \<langle>l, (k,p), r\<rangle>;  \<langle>a, b, c\<rangle> = (map_tree snd \<langle>l, (k,p), r\<rangle>)\<rbrakk> \<Longrightarrow>  a = map_tree snd l \<and> b = p \<and> c = map_tree snd r"
   apply(auto)
   done
-  
+
+lemma adjkfcka:
+"set_tree (map_tree fst r) \<subseteq> set_tree (map_tree fst \<langle>l, (k, p), r\<rangle>)"
+  apply(auto simp add: treap_def tree.set_map)
+  done
+
+ 
+lemma subset_disj:
+ "a  \<subseteq> b \<and> disjnt b c \<Longrightarrow> disjnt a c"
+  using disjnt_def by (blast)
+
+(*
+    "disjnt (set_tree (map_tree fst l)) (set_tree (map_tree fst r))"
+    "disjnt (set_tree (map_tree snd l)) (set_tree (map_tree snd r))"
+*)
+
 lemma treap_union:
-  assumes   "treap l" "treap r" 
+  assumes   "treap l" "treap r"
     "\<forall>k' \<in> keys l. k' < k"
     "\<forall>k'' \<in> keys r. k < k''"  
-    "\<forall>p' \<in> prios l. p' > p"
-    " \<forall>p'' \<in> prios r. p'' > p"
-    "disjoint set_tree (map_tree fst l) set_tree (map_tree fst r)"
-    "disjoint set_tree (map_tree snd l) set_tree (map_tree snd r)"
+    "\<forall>p' \<in> prios l. p' \<ge> p"
+    " \<forall>p'' \<in> prios r. p'' \<ge> p"
   shows "treap  \<langle>l, (k, p), r\<rangle>"
-proof
-  have 0: "bst  \<langle>(map_tree fst l), k, (map_tree fst r)\<rangle>"  using assms by (auto simp add: sbt_union tree.set_map)
-  have 1: "heap  \<langle>(map_tree snd l), p, (map_tree snd r)\<rangle>"  using assms by (auto simp add: heap_union tree.set_map)
-  show  "treap  \<langle>l, (k, p), r" using 0 1 by (auto simp add: treap_def) 
+proof -
+  obtain bst_l where get_bst_l: "bst_l = (map_tree fst l)" by (auto)
+  obtain bst_r where get_bst_r: "bst_r = (map_tree fst r)" by (auto)
+  have 0: "bst bst_l" using assms(1) get_bst_l  by (auto simp: treap_def)
+  have 1: "bst bst_r" using assms(2) get_bst_r  by (auto simp: treap_def)
+  have 2: "bst  \<langle>bst_l, k, bst_r\<rangle>"  using 0 1 get_bst_l get_bst_r assms(3) assms(4)  bst_union by (auto simp add: treap_def tree.set_map)
+
+  obtain heap_l where get_heap_l: "heap_l = (map_tree snd l)" by (auto)
+  obtain heap_r where get_heap_r: "heap_r = (map_tree snd r)" by (auto)
+  have 3: "heap heap_l" using assms(1) get_heap_l  by (auto simp: treap_def)
+  have 4: "heap heap_r" using assms(2) get_heap_r  by (auto simp: treap_def)
+  have 5: "heap  \<langle>heap_l, p, heap_r\<rangle>"  using 3 4 get_heap_l get_heap_r assms(5) assms(6) heap_union by (auto simp add: treap_def tree.set_map)
+
+ 
+  show  "treap  \<langle>l, (k, p), r\<rangle>" using 2 5 get_bst_l get_bst_r get_heap_l get_heap_r by (auto simp add: treap_def) 
 qed
 
+lemma merge_treap_key_preserve:
+"\<forall> k' \<in> keys (merge t1 t2). 
+k' \<in>  keys  t1 \<or> k' \<in>  keys t2"
+proof (induction t1 t2 rule: merge.induct)
+  case (1 t)
+  then show ?case by (auto)
+next
+  case (2 v va vb)
+  then show ?case by (auto)
+next
+  case (3 l1 k1 p1 r1 l2 k2 p2 r2)
+  then show ?case by (auto)
+qed
 
+lemma merge_treap_prios_preserve:
+"\<forall> k' \<in> prios (merge t1 t2). 
+k' \<in>  prios  t1 \<or> k' \<in>  prios t2"
+proof(induction t1 t2 rule: merge.induct)
+  case (1 t)
+  then show ?case by (auto)
+next
+  case (2 v va vb)
+  then show ?case by (auto)
+next
+  case (3 l1 k1 p1 r1 l2 k2 p2 r2)
+  then show ?case by (auto)
+qed
 
+(*
 lemma merge_treap:
 assumes   "treap l" "treap r" "(\<forall>k' \<in> keys l. \<forall>k'' \<in> keys r. k' < k'')"  
     "disjoint set_tree (map_tree fst l) set_tree (map_tree fst r)" 
     "disjoint set_tree (map_tree snd l) set_tree (map_tree snd r)"
 shows "treap (merge l r)"
-proof(induction  l r  rule: merge.induct)
+*)
+
+lemma merge_treap:
+  "\<lbrakk>treap l; treap r ;(\<forall>k' \<in> keys l. \<forall>k'' \<in> keys r. k' < k'');  
+    disjnt (set_tree (map_tree fst l)) (set_tree (map_tree fst r)); 
+    disjnt (set_tree (map_tree snd l))(set_tree (map_tree snd r))\<rbrakk> \<Longrightarrow> treap (merge l r)"
+proof(induction l r  rule: merge.induct)
   case (1 t)
-  then show ?case using assms by auto
+  have "treap t" using "1.prems" by (auto)
+  then show ?case using "1.prems"  by (auto)
 next
   case (2 v va vb)
-  then show ?case using assms by auto
+  then show ?case using "2.prems" by (auto)
 next
   case (3 l1 k1 p1 r1 l2 k2 p2 r2)
+  have  "treap \<langle>l1, (k1, p1), r1 \<rangle>" using  "3.prems" by (auto)
+  have "\<forall>k'\<in>keys r1. \<forall>a\<in>keys \<langle>l2, (k2, p2), r2\<rangle>. k' < a" using "3.prems" by (auto)
+  have "disjnt (set_tree (map_tree fst r1)) (set_tree (map_tree fst \<langle>l2, (k2, p2), r2\<rangle>))" using "3.prems" by (auto simp: treap_def tree.set_map)
   then show ?case
-    proof (cases "p1 > p2")
+  proof (cases "p1 < p2")
       case 4: True
-      then have "treap (merge r1  \<langle>l2, (k2, p2), r2 \<rangle>)"
-        using 4 "3.IH" assms 
+      obtain treap_r where get_treap_r: "treap_r = merge r1  \<langle>l2, (k2, p2), r2 \<rangle>" by (auto)
+      obtain t2 where get_t2: "t2 =  \<langle>l2, (k2, p2), r2 \<rangle>" by (auto)
+      have treap_r_is_treap: "treap treap_r"
+        using 4 "3.IH" "3.prems" get_treap_r sub_treap[of l1 k1 p1 r1]
         by (auto simp: treap_def tree.set_map)
-      then show ?thesis using assms by (auto simp: treap_union)
+
+      have c: "\<forall>k' \<in> keys l1.  k' < k1" using "3.prems" by (auto simp: treap_def tree.set_map)
+
+      have w: "\<forall>k''\<in>keys treap_r. k'' \<in> keys r1 \<or> k'' \<in> keys t2" 
+        using get_treap_r  get_t2 merge_treap_key_preserve[of r1 t2] by auto
+      have q: "\<forall>k''\<in>keys t2. k1 < k''" using get_t2 "3.prems" by (auto)
+      have r: "\<forall>k''\<in>keys r1. k1 < k''" using "3.prems"(1) by (auto simp: treap_def)
+      have d: "\<forall>k''\<in>keys treap_r. k1 < k''" using w q r by (auto)
+
+      have l1_is_treap: "treap l1" using "3.prems"(1) sub_treap[of l1 k1 p1 r1] by (auto)
+
+      have j: "\<forall>p' \<in> prios l1.  p' \<ge> p1" using "3.prems" by (auto simp: treap_def tree.set_map)
+
+      have e: "\<forall>p''\<in>prios treap_r. p'' \<in> prios r1 \<or> p'' \<in> prios t2" 
+        using get_treap_r  get_t2 merge_treap_prios_preserve[of r1 t2] by auto
+      have "\<forall>p''\<in>prios t2. p2 \<le> p''" using get_t2 "3.prems"(2) by (auto simp: treap_def)
+      then have f: "\<forall>p''\<in>prios t2. p1 \<le> p''" using 4  by (auto simp: treap_def tree.set_map)
+      have g: "\<forall>p''\<in>prios r1. p1  \<le> p''" using "3.prems"(1) by (auto simp: treap_def)
+      have h: "\<forall>p''\<in>prios treap_r. p1 \<le> p''" using e f g by (auto)
+
+     
+      show ?thesis 
+        using treap_union[of l1 treap_r k1 p1]  l1_is_treap treap_r_is_treap c d j h 4 get_treap_r
+        by (auto)
     next 
       case 5: False
+      obtain treap_l where get_treap_l: "treap_l = merge \<langle>l1, (k1,p1), r1\<rangle> l2"
       then have "treap (merge \<langle>l1, (k1,p1), r1\<rangle> l2)"
         using 5 "3.IH" assms 
         by (auto simp: treap_def tree.set_map)
