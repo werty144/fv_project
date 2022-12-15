@@ -531,6 +531,7 @@ next
   qed
 qed
 
+
 lemma cont_ins_same: "\<lbrakk>treap t; cont k p t\<rbrakk> \<Longrightarrow> ins k p t = t"
 proof(induction t rule: ins.induct)
   case (1 k p)
