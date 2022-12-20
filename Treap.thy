@@ -570,6 +570,12 @@ next
     qed
   qed
 qed
+
+lemma cont_subtreap:
+ "\<lbrakk>\<not> cont k p r; \<not> cont k p l; k \<noteq>  k1 \<or> p \<noteq> p1\<rbrakk> \<Longrightarrow> \<not> cont k p \<langle>l, (k1, p1),r \<rangle> "
+  apply(auto)
+  done
+
 (*
 fun disjoint_treap::"'t1 \<Rightarrow> 't2 \<Rightarrow> bool" where
 "disjoint_treap \<langle>\<rangle> t2 = True" |
@@ -781,4 +787,87 @@ next
 qed
 
 
+
+fun del:: "'k::linorder \<Rightarrow>  'p::linorder \<Rightarrow> ('k \<times>'p) tree \<Rightarrow> ('k \<times> 'p) tree" where
+"del k p Leaf = Leaf" |
+
+"del k p \<langle>Leaf, (k1,p1), Leaf\<rangle> = 
+(if k = k1 \<and> p = p1 then Leaf
+else \<langle>Leaf, (k1,p1), Leaf\<rangle>)" |
+
+"del k p \<langle>l1, (k1,p1), Leaf\<rangle>  = 
+(if k = k1 \<and> p = p1 then del k p l1
+else \<langle>del k p l1, (k1,p1), Leaf\<rangle>)" |
+
+"del k p \<langle>Leaf, (k1,p1), r1\<rangle>  = 
+(if k = k1 \<and> p = p1 then del k p r1
+else \<langle>Leaf, (k1,p1), del k p r1\<rangle>)" |
+
+"del k p \<langle>l1, (k1,p1), r1\<rangle>  =   
+(if k = k1 \<and> p = p1 then
+merge (del k p l1) (del k p r1)
+else \<langle>del k p l1, (k1,p1), del k p r1\<rangle>)
+"
+
+lemma treap_del:
+"\<lbrakk>treap t \<rbrakk> \<Longrightarrow> \<not>cont  k p(del k p t)"
+proof(induction t  rule: del.induct)
+  case (1 k p)
+  then show ?case by auto
+next
+  case (2 k p k1 p1)
+  then show ?case by auto
+next
+  case (3 k p l1_l l1_k l1_r k1 p1)
+  obtain treap_l where get_treap_l: "treap_l = del k p \<langle>l1_l, l1_k, l1_r\<rangle>" by (auto)
+  have 1: "treap  \<langle>l1_l, l1_k, l1_r\<rangle>" using "3.prems" sub_treap by auto
+  then show ?case 
+  proof (cases "k = k1 \<and> p = p1")
+    case a: True
+    show ?thesis using "3.IH" 1 a by auto
+  next
+    case b: False
+    have "\<not> cont k p treap_l" using "3.IH"(2) 1 b get_treap_l by auto
+    then show ?thesis using b get_treap_l cont_subtreap[of k p treap_l Leaf k1 p1] by auto
+  qed
+next
+  case (4 k p k1 p1 r1_l r1_k r1_r)
+  obtain treap_r where get_treap_r: "treap_r = del k p \<langle>r1_l, r1_k, r1_r\<rangle>" by (auto)
+  have 2: "treap  \<langle>r1_l, r1_k, r1_r\<rangle>" using "4.prems" sub_treap by auto
+  then show ?case 
+  proof (cases "k = k1 \<and> p = p1")
+    case a: True
+    show ?thesis using "4.IH" 2 a by auto
+  next
+    case b: False
+    have "\<not> cont k p treap_r" using "4.IH"(2) 2 b get_treap_r by auto
+    then show ?thesis using b get_treap_r cont_subtreap[of k p Leaf  treap_r k1 p1] by auto
+  qed
+next
+  case ("5_1" k p l1_l l1_k l1_r k1 p1 r1_l r1_k r1_r)
+  obtain treap_l where get_treap_l: "treap_l = del k p \<langle>l1_l, l1_k, l1_r\<rangle>" by (auto)
+  obtain treap_r where get_treap_r: "treap_r = del k p \<langle>r1_l, r1_k, r1_r\<rangle>" by (auto)
+  have 1: "treap  \<langle>l1_l, l1_k, l1_r\<rangle>" using "5_1.prems" sub_treap by auto
+  have 2: "treap  \<langle>r1_l, r1_k, r1_r\<rangle>" using "5_1.prems" sub_treap by auto
+  then show ?case
+  proof (cases "k = k1 \<and> p = p1")
+    case a: True
+    have "\<not> cont k p treap_l" using "5_1.IH"(1) 1 a get_treap_l by auto
+    moreover have "\<not> cont k p treap_r" using "5_1.IH"(2) 2 a get_treap_r by auto
+    ultimately show ?thesis using a get_treap_r get_treap_l cont_subtreap[of k p treap_l  treap_r k1 p1] by auto
+  next
+    case b: False
+    have "\<not> cont k p treap_l" using "5_1.IH"(3) 1 b get_treap_l by auto
+    moreover have "\<not> cont k p treap_r" using "5_1.IH"(4) 2 b get_treap_r by auto
+    ultimately  show ?thesis using b get_treap_r get_treap_l cont_subtreap[of k p treap_l  treap_r k1 p1] by auto 
+  qed
+(*
+next
+  case ("5_2" k p l1_l l1_k l1_r k1 p1 r1_l r1_k r2_r)
+  then show ?case using "5_2.prems" by auto*)
+qed
+
+
+(* DO we have unique elements?*)
+(*Do we want to delete just using the keys ? *)
 end
