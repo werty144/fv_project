@@ -476,6 +476,11 @@ lemma cont_then_in_keys: "\<lbrakk>treap t; cont k p t\<rbrakk> \<Longrightarrow
   apply(auto simp: treap_def tree.set_map)
   done
 
+lemma cont_then_in_prios: "\<lbrakk>treap t; cont k p t\<rbrakk> \<Longrightarrow> p \<in> prios t"
+  apply(induction t)
+  apply(auto simp: treap_def tree.set_map)
+  done
+
 
 lemma sub_treap:
   assumes "treap \<langle>l, (k, p), r\<rangle>"
@@ -788,86 +793,167 @@ qed
 
 
 
-fun del:: "'k::linorder \<Rightarrow>  'p::linorder \<Rightarrow> ('k \<times>'p) tree \<Rightarrow> ('k \<times> 'p) tree" where
-"del k p Leaf = Leaf" |
+fun del:: "'k::linorder \<Rightarrow>  ('k \<times>'p::linorder) tree \<Rightarrow> ('k \<times> 'p) tree" where
+"del k Leaf = Leaf" |
 
-"del k p \<langle>Leaf, (k1,p1), Leaf\<rangle> = 
-(if k = k1 \<and> p = p1 then Leaf
+"del k \<langle>Leaf, (k1,p1), Leaf\<rangle> = 
+(if k = k1 then Leaf
 else \<langle>Leaf, (k1,p1), Leaf\<rangle>)" |
 
-"del k p \<langle>l1, (k1,p1), Leaf\<rangle>  = 
-(if k = k1 \<and> p = p1 then del k p l1
-else \<langle>del k p l1, (k1,p1), Leaf\<rangle>)" |
+"del k \<langle>l1, (k1,p1), Leaf\<rangle>  = 
+(if k = k1 then del k l1
+else \<langle>del k l1, (k1,p1), Leaf\<rangle>)" |
 
-"del k p \<langle>Leaf, (k1,p1), r1\<rangle>  = 
-(if k = k1 \<and> p = p1 then del k p r1
-else \<langle>Leaf, (k1,p1), del k p r1\<rangle>)" |
+"del k \<langle>Leaf, (k1,p1), r1\<rangle>  = 
+(if k = k1 then del k r1
+else \<langle>Leaf, (k1,p1), del k r1\<rangle>)" |
 
-"del k p \<langle>l1, (k1,p1), r1\<rangle>  =   
-(if k = k1 \<and> p = p1 then
-merge (del k p l1) (del k p r1)
-else \<langle>del k p l1, (k1,p1), del k p r1\<rangle>)
+"del k \<langle>l1, (k1,p1), r1\<rangle>  =   
+(if k = k1 then
+merge (del k l1) (del k r1)
+else \<langle>del k l1, (k1,p1), del k r1\<rangle>)
 "
 
 lemma treap_del:
-"\<lbrakk>treap t \<rbrakk> \<Longrightarrow> \<not>cont  k p(del k p t)"
+"\<lbrakk>treap t \<rbrakk> \<Longrightarrow>  k \<notin> keys (del k t)"
 proof(induction t  rule: del.induct)
-  case (1 k p)
+  case (1 k)
   then show ?case by auto
 next
-  case (2 k p k1 p1)
+  case (2 k k1 p1)
   then show ?case by auto
 next
-  case (3 k p l1_l l1_k l1_r k1 p1)
-  obtain treap_l where get_treap_l: "treap_l = del k p \<langle>l1_l, l1_k, l1_r\<rangle>" by (auto)
+  case (3 k l1_l l1_k l1_r k1 p1)
+  obtain treap_l where get_treap_l: "treap_l = del k \<langle>l1_l, l1_k, l1_r\<rangle>" by (auto)
   have 1: "treap  \<langle>l1_l, l1_k, l1_r\<rangle>" using "3.prems" sub_treap by auto
   then show ?case 
-  proof (cases "k = k1 \<and> p = p1")
+  proof (cases "k = k1")
     case a: True
     show ?thesis using "3.IH" 1 a by auto
   next
     case b: False
-    have "\<not> cont k p treap_l" using "3.IH"(2) 1 b get_treap_l by auto
-    then show ?thesis using b get_treap_l cont_subtreap[of k p treap_l Leaf k1 p1] by auto
+    have "k \<notin> keys treap_l" using "3.IH"(2) 1 b get_treap_l by auto
+    then show ?thesis using b get_treap_l by auto
   qed
 next
-  case (4 k p k1 p1 r1_l r1_k r1_r)
-  obtain treap_r where get_treap_r: "treap_r = del k p \<langle>r1_l, r1_k, r1_r\<rangle>" by (auto)
+  case (4 k k1 p1 r1_l r1_k r1_r)
+  obtain treap_r where get_treap_r: "treap_r = del k \<langle>r1_l, r1_k, r1_r\<rangle>" by (auto)
   have 2: "treap  \<langle>r1_l, r1_k, r1_r\<rangle>" using "4.prems" sub_treap by auto
   then show ?case 
-  proof (cases "k = k1 \<and> p = p1")
+  proof (cases "k = k1")
     case a: True
     show ?thesis using "4.IH" 2 a by auto
   next
     case b: False
-    have "\<not> cont k p treap_r" using "4.IH"(2) 2 b get_treap_r by auto
-    then show ?thesis using b get_treap_r cont_subtreap[of k p Leaf  treap_r k1 p1] by auto
+    have "k \<notin> keys treap_r" using "4.IH"(2) 2 b get_treap_r by auto
+    then show ?thesis using b get_treap_r  by auto
   qed
 next
-  case ("5_1" k p l1_l l1_k l1_r k1 p1 r1_l r1_k r1_r)
-  obtain treap_l where get_treap_l: "treap_l = del k p \<langle>l1_l, l1_k, l1_r\<rangle>" by (auto)
-  obtain treap_r where get_treap_r: "treap_r = del k p \<langle>r1_l, r1_k, r1_r\<rangle>" by (auto)
+  case ("5_1" k l1_l l1_k l1_r k1 p1 r1_l r1_k r1_r)
+  obtain treap_l where get_treap_l: "treap_l = del k \<langle>l1_l, l1_k, l1_r\<rangle>" by (auto)
+  obtain treap_r where get_treap_r: "treap_r = del k \<langle>r1_l, r1_k, r1_r\<rangle>" by (auto)
   have 1: "treap  \<langle>l1_l, l1_k, l1_r\<rangle>" using "5_1.prems" sub_treap by auto
   have 2: "treap  \<langle>r1_l, r1_k, r1_r\<rangle>" using "5_1.prems" sub_treap by auto
   then show ?case
-  proof (cases "k = k1 \<and> p = p1")
+  proof (cases "k = k1")
     case a: True
-    have "\<not> cont k p treap_l" using "5_1.IH"(1) 1 a get_treap_l by auto
-    moreover have "\<not> cont k p treap_r" using "5_1.IH"(2) 2 a get_treap_r by auto
-    ultimately show ?thesis using a get_treap_r get_treap_l cont_subtreap[of k p treap_l  treap_r k1 p1] by auto
+    have "k \<notin> keys treap_l" using "5_1.IH"(1) 1 a get_treap_l by auto
+    moreover have "k \<notin> keys treap_r" using "5_1.IH"(2) 2 a get_treap_r by auto
+    ultimately show ?thesis using a get_treap_r get_treap_l merge_treap_key_preserve[of treap_l treap_r] cont_then_in_keys  by auto
   next
     case b: False
-    have "\<not> cont k p treap_l" using "5_1.IH"(3) 1 b get_treap_l by auto
-    moreover have "\<not> cont k p treap_r" using "5_1.IH"(4) 2 b get_treap_r by auto
-    ultimately  show ?thesis using b get_treap_r get_treap_l cont_subtreap[of k p treap_l  treap_r k1 p1] by auto 
+    have " k \<notin> keys treap_l" using "5_1.IH"(3) 1 b get_treap_l by auto
+    moreover have "k \<notin> keys treap_r" using "5_1.IH"(4) 2 b get_treap_r by auto
+    ultimately  show ?thesis using b get_treap_r get_treap_l  by auto 
   qed
-(*
 next
-  case ("5_2" k p l1_l l1_k l1_r k1 p1 r1_l r1_k r2_r)
-  then show ?case using "5_2.prems" by auto*)
+ case ("5_2" k l1_l l1_k l1_r k1 p1 r1_l r1_k r1_r)
+  obtain treap_l where get_treap_l: "treap_l = del k \<langle>l1_l, l1_k, l1_r\<rangle>" by (auto)
+  obtain treap_r where get_treap_r: "treap_r = del k \<langle>r1_l, r1_k, r1_r\<rangle>" by (auto)
+  have 1: "treap  \<langle>l1_l, l1_k, l1_r\<rangle>" using "5_2.prems" sub_treap by auto
+  have 2: "treap  \<langle>r1_l, r1_k, r1_r\<rangle>" using "5_2.prems" sub_treap by auto
+  then show ?case
+  proof (cases "k = k1")
+    case a: True
+    have "k \<notin> keys treap_l" using "5_2.IH"(1) 1 a get_treap_l by auto
+    moreover have "k \<notin> keys treap_r" using "5_2.IH"(2) 2 a get_treap_r by auto
+    ultimately show ?thesis using a get_treap_r get_treap_l merge_treap_key_preserve[of treap_l treap_r] cont_then_in_keys  by auto
+  next
+    case b: False
+    have " k \<notin> keys treap_l" using "5_2.IH"(3) 1 b get_treap_l by auto
+    moreover have "k \<notin> keys treap_r" using "5_2.IH"(4) 2 b get_treap_r by auto
+    ultimately  show ?thesis using b get_treap_r get_treap_l  by auto 
+  qed
+qed
+
+lemma treap_del2:
+"\<lbrakk>treap t \<rbrakk> \<Longrightarrow> \<forall>k' \<in> keys t. k' \<in> keys (del k t) \<or> k'=k"
+proof(induction t  rule: del.induct)
+  case (1 k)
+  then show ?case by auto
+next
+  case (2 k k1 p1)
+  then show ?case by (auto simp: treap_def)
+next
+  case (3 k l1_l l1_k l1_r k1 p1)
+  then show ?case by (auto simp: treap_def)
+next
+  case (4 k k1 p1 r1_l r1_k r1_r)
+  then show ?case by (auto simp: treap_def)
+next
+  case ("5_1" k l1_l l1_k l1_r k1 p1 r1_l r1_k r1_r)
+  obtain treap_l where get_treap_l: "treap_l = del k \<langle>l1_l, l1_k, l1_r\<rangle>" by (auto)
+  obtain treap_r where get_treap_r: "treap_r = del k \<langle>r1_l, r1_k, r1_r\<rangle>" by (auto)
+  have 1: "treap  \<langle>l1_l, l1_k, l1_r\<rangle>" using "5_1.prems" sub_treap by auto
+  have 2: "treap  \<langle>r1_l, r1_k, r1_r\<rangle>" using "5_1.prems" sub_treap by auto
+ then show ?case
+  proof (cases "k = k1")
+    case a: True
+    have " \<forall>k' \<in> keys  \<langle>l1_l, l1_k, l1_r\<rangle>. k' \<in> keys treap_l \<or> k'=k" using "5_1.IH"(1) 1 a get_treap_l by auto
+    moreover have  " \<forall>k' \<in> keys  \<langle>r1_l, r1_k, r1_r\<rangle>. k' \<in> keys treap_r \<or> k'=k" using "5_1.IH"(2) 2 a get_treap_r by auto
+    ultimately show ?thesis using a get_treap_r get_treap_l merge_treap_key_preserve[of treap_l treap_r] cont_then_in_keys  by auto
+  next
+    case b: False
+    have " \<forall>k' \<in> keys  \<langle>l1_l, l1_k, l1_r\<rangle>. k' \<in> keys treap_l \<or> k'=k" using "5_1.IH"(1) 1 b get_treap_l by auto
+    moreover have  " \<forall>k' \<in> keys  \<langle>r1_l, r1_k, r1_r\<rangle>. k' \<in> keys treap_r \<or> k'=k" using "5_1.IH"(2) 2 b get_treap_r by auto
+    ultimately show ?thesis using a get_treap_r get_treap_l merge_treap_key_preserve[of treap_l treap_r] cont_then_in_keys  by auto
+  qed
+next
+  case ("5_2" k l1_l l1_k l1_r k1 p1 r1_l r1_k r1_r)
+  then show ?case by (auto simp: treap_def)
 qed
 
 
-(* DO we have unique elements?*)
-(*Do we want to delete just using the keys ? *)
+lemma treap_del3:
+"\<lbrakk>treap t \<rbrakk> \<Longrightarrow>  treap (del k t)"
+proof(induction t  rule: del.induct)
+  case (1 k)
+  then show ?case by auto
+next
+  case (2 k k1 p1)
+  then show ?case by (auto simp: treap_def)
+next
+  case (3 k l1_l l1_k l1_r k1 p1)
+  obtain treap_l where get_treap_l: "treap_l = del k \<langle>l1_l, l1_k, l1_r\<rangle>" by (auto)
+  have 1: "treap  \<langle>l1_l, l1_k, l1_r\<rangle>" using "3.prems" sub_treap by auto
+  then show ?case 
+  proof (cases "k = k1")
+    case a: True
+    show ?thesis using "3.IH"(1) 1 a by auto
+  next
+    case b: False
+    have " \<forall> k' \<in> keys l1. k1<k'" by (auto simp: treap_def)
+    then show ?thesis using b get_treap_l treap_union by auto
+  qed
+next
+  case (4 k k1 p1 r1_l r1_k r1_r)
+  then show ?case  by (auto simp: treap_def)
+next
+  case ("5_1" k l1_l l1_k l1_r k1 p1 r1_l r1_k r1_r)
+  then show ?case sorry
+next
+  case ("5_2" k l1_l l1_k l1_r k1 p1 r1_l r1_k r1_r)
+  then show ?case sorry
+qed
+
 end
