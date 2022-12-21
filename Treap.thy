@@ -694,28 +694,23 @@ shows "treap (merge l r)"
 *)
 
 lemma merge_treap:
-  "\<lbrakk>treap l; treap r ;(\<forall>k' \<in> keys l. \<forall>k'' \<in> keys r. k' < k'');  
-    disjnt (set_tree (map_tree fst l)) (set_tree (map_tree fst r)); 
-    disjnt (set_tree (map_tree snd l))(set_tree (map_tree snd r))\<rbrakk> \<Longrightarrow> treap (merge l r)"
+  "\<lbrakk>treap l; treap r ;(\<forall>k' \<in> keys l. \<forall>k'' \<in> keys r. k' < k'') \<rbrakk> \<Longrightarrow> treap (merge l r)"
 proof(induction l r  rule: merge.induct)
   case (1 t)
-  have "treap t" using "1.prems" by (auto)
-  then show ?case using "1.prems"  by (auto)
+  have "treap t" using "1.prems"(1) by (auto)
+  then show ?case by (auto)
 next
   case (2 v va vb)
-  then show ?case using "2.prems" by (auto)
+  then show ?case using "2.prems"(2) by (auto)
 next
   case (3 l1 k1 p1 r1 l2 k2 p2 r2)
-  (*have  "treap \<langle>l1, (k1, p1), r1 \<rangle>" using  "3.prems" by (auto)
-  have "\<forall>k'\<in>keys r1. \<forall>a\<in>keys \<langle>l2, (k2, p2), r2\<rangle>. k' < a" using "3.prems" by (auto)
-  have "disjnt (set_tree (map_tree fst r1)) (set_tree (map_tree fst \<langle>l2, (k2, p2), r2\<rangle>))" using "3.prems" by (auto simp: treap_def tree.set_map)*)
   then show ?case
   proof (cases "p1 < p2")
       case 4: True
       obtain treap_r where get_treap_r: "treap_r = merge r1  \<langle>l2, (k2, p2), r2 \<rangle>" by (auto)
       obtain t2 where get_t2: "t2 =  \<langle>l2, (k2, p2), r2 \<rangle>" by (auto)
       have treap_r_is_treap: "treap treap_r"
-        using 4 "3.IH" "3.prems" get_treap_r sub_treap[of l1 k1 p1 r1]
+        using 4 "3.IH"(1) "3.prems" get_treap_r sub_treap[of l1 k1 p1 r1]
         by (auto simp: treap_def tree.set_map)
 
       have keys_1: "\<forall>k' \<in> keys l1.  k' < k1" using "3.prems" by (auto simp: treap_def tree.set_map)
@@ -1001,7 +996,7 @@ next
     ultimately have keys_ok: "\<forall>k'\<in>keys treap_l. k' < k1"  by auto
 
 
-    have "\<forall>p'\<in>prios l1. p' \<ge> p1" using  get_l1 "3.prems"  by (auto simp: treap_def)
+    have "\<forall>p'\<in>prios l1. p1 \<le> p'" using  get_l1 "3.prems"  by (auto simp: treap_def)
     moreover have  "prios  treap_l \<subseteq> prios l1" using get_l1 get_treap_l 1 treap_del3[of l1 k] by auto
     ultimately have prios_ok: "\<forall>p'\<in> prios treap_l. p' \<ge> p1"  by auto
 
@@ -1020,24 +1015,81 @@ next
   next
     case b: False
 
-    have "\<forall>k'\<in>keys r1. k' > k1" using  get_r1 "4.prems"  by (auto simp: treap_def)
+    have "\<forall>k'\<in>keys r1. k1 < k'" using  get_r1 "4.prems"  by (auto simp: treap_def)
     moreover have  "keys r1 - {k} = keys treap_r" using get_r1 get_treap_r 1 treap_del2[of r1 k] by auto
-    ultimately have keys_ok: "\<forall>k'\<in>keys treap_r. k' > k1"  by auto
+    ultimately have keys_ok: "\<forall>k'\<in>keys treap_r. k1 < k'"  by auto
 
 
-    have "\<forall>p'\<in>prios r1. p' \<ge> p1" using  get_r1 "4.prems"  by (auto simp: treap_def)
+    have "\<forall>p'\<in>prios r1. p1 \<le> p'" using  get_r1 "4.prems"  by (auto simp: treap_def)
     moreover have  "prios  treap_r \<subseteq> prios r1" using get_r1 get_treap_r 1 treap_del3[of r1 k] by auto
-    ultimately have prios_ok: "\<forall>p'\<in> prios treap_r. p' \<ge> p1"  by auto
+    ultimately have prios_ok: "\<forall>p'\<in> prios treap_r. p1 \<le> p'"  by auto
 
     have "treap (treap_r)" using "4.IH"(2) 1 b get_treap_r by (auto)
-    then show ?thesis using b get_treap_r treap_union[of treap_l Leaf k1 p1] keys_ok prios_ok by (auto simp: treap_def)
+    then show ?thesis using b get_treap_r treap_union[of Leaf treap_r k1 p1] keys_ok prios_ok by (auto simp: treap_def)
   qed
 next
   case ("5_1" k l1_l l1_k l1_r k1 p1 r1_l r1_k r1_r)
-  then show ?case sorry
+  obtain l1 where get_l1: "l1 =  \<langle>l1_l, l1_k, l1_r\<rangle>" by (auto)
+  obtain treap_l where get_treap_l: "treap_l = del k \<langle>l1_l, l1_k, l1_r\<rangle>" using get_l1 by (auto)
+  obtain r1 where get_r1: "r1 =  \<langle>r1_l, r1_k, r1_r\<rangle>" by (auto)
+  obtain treap_r where get_treap_r: "treap_r = del k \<langle>r1_l, r1_k, r1_r\<rangle>" using get_r1 by (auto)
+  have 1: "treap l1" using get_l1 "5_1.prems" sub_treap by auto
+  have 2: "treap r1" using get_r1 "5_1.prems" sub_treap by auto
+
+  have "\<forall>k'\<in>keys l1. k' < k1" using  get_l1 "5_1.prems"  by (auto simp: treap_def)
+  moreover have  "keys l1 - {k} = keys treap_l" using get_l1 get_treap_l 1 treap_del2[of l1 k] by auto
+  ultimately have keys_l_ok: "\<forall>k'\<in>keys treap_l. k' < k1"  by auto
+
+
+  have "\<forall>p'\<in>prios l1. p1 \<le> p'" using  get_l1 "5_1.prems"  by (auto simp: treap_def)
+  moreover have  "prios  treap_l \<subseteq> prios l1" using get_l1 get_treap_l 1 treap_del3[of l1 k] by auto
+  ultimately have prios_l_ok: "\<forall>p'\<in> prios treap_l. p1  \<le> p'"  by auto
+
+
+  have "\<forall>k'\<in>keys r1. k1 < k'" using  get_r1 "5_1.prems"  by (auto simp: treap_def)
+  moreover have  "keys r1 - {k} = keys treap_r" using get_r1 get_treap_r 2 treap_del2[of r1 k] by auto
+  ultimately have keys_r_ok: "\<forall>k''\<in>keys treap_r. k'' > k1"  by auto
+
+
+  have "\<forall>p'\<in>prios r1. p1 \<le> p'" using  get_r1 "5_1.prems"  by (auto simp: treap_def)
+  moreover have  "prios  treap_r \<subseteq> prios r1" using get_r1 get_treap_r 2 treap_del3[of r1 k] by auto
+  ultimately have prios_r_ok: "\<forall>p'\<in> prios treap_r. p1 \<le> p'"  by auto
+
+(*just an idea to prove what we are missing - NOT Working*)
+  have "\<forall>k'\<in>keys l1. \<forall>k''\<in>keys r1.  k' < k''" using  get_l1 get_r1 "5_1.prems"  by (auto simp: treap_def)
+
+  then show ?case 
+  proof (cases "k = k1")
+    case a: True
+
+    have "treap (treap_l)" using "5_1.IH"(1) 1 a get_treap_l get_l1 by (auto)
+    moreover have  "treap (treap_r)" using "5_1.IH"(2) 2 a get_treap_r get_r1 by (auto)
+    moreover have "\<forall>k'\<in>keys treap_l. \<forall>k''\<in>keys treap_r. k' < k''"  using keys_l_ok keys_r_ok by auto
+    ultimately show ?thesis 
+       using merge_treap[of treap_l treap_r] using get_treap_l get_treap_r a by auto
+  next
+    case b: False
+
+    have "treap (treap_l)" using "5_1.IH"(3) 1 b get_treap_l get_l1 by (auto)
+    moreover have  "treap (treap_r)" using "5_1.IH"(4) 2 b get_treap_r get_r1 by (auto)
+    ultimately show ?thesis 
+      using b get_treap_l get_treap_r treap_union[of treap_l treap_r k1 p1] keys_l_ok prios_l_ok keys_r_ok prios_r_ok 
+      by (auto simp: treap_def)
+  qed
 next
   case ("5_2" k l1_l l1_k l1_r k1 p1 r1_l r1_k r1_r)
   then show ?case sorry
 qed
+
+(* Some idea to extract the issue in a smaller environment*)
+lemma asdasd:
+"\<lbrakk> a < k;   k < b \<rbrakk> \<Longrightarrow>  a < b "
+  apply(blast)
+  done
+
+lemma set_theory_1:
+"\<lbrakk>\<forall>a' \<in> A. a' < k;  \<forall>b' \<in> B. b' > k \<rbrakk> \<Longrightarrow>  \<forall>a' \<in> A.  \<forall>b' \<in> B. b' > a' "
+proof -
+  have " \<forall>a' \<in> A. \<forall>b' \<in> B. a' < k \<and> b' > k " using "prems"  by auto
 
 end
